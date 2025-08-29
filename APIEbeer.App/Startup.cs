@@ -25,12 +25,23 @@ namespace APIEbeer.App
             services.AddScoped<IRecommendationService, RecommendationService>();
 
             services.AddMemoryCache();
+
+            // Configurando o Swagger
+            services.AddSwaggerGen();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
-                app.UseDeveloperExceptionPage();
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Minha API V1");
+                    c.RoutePrefix = "swagger"; // Acesse em /swagger
+                });
+            }
+                
 
             app.UseRouting();
 

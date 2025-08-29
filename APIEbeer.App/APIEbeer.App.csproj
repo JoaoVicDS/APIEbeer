@@ -13,6 +13,10 @@
 		<ProjectReference Include="..\APIEbeer.Shared\APIEbeer.Shared.csproj" />
 		<ProjectReference Include="..\APIEbeer.Data\APIEbeer.Data.csproj" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.3" />
+	</ItemGroup>
 	
 	<!-- Esta parte garante que arquivos da wwwroot sejam publicados -->
 </Project>
