@@ -3,6 +3,7 @@ using APIEbeer.Data.Models;
 using APIEbeer.Services.Cache;
 using APIEbeer.Services.Form;
 using APIEbeer.Services.Json;
+using APIEbeer.Services.Questions;
 using APIEbeer.Services.Recommendation;
 
 namespace APIEbeer.App
@@ -23,6 +24,7 @@ namespace APIEbeer.App
             services.AddScoped<IFormService, FormService>();
             services.AddScoped<ICacheService, CacheService>();
             services.AddScoped<IRecommendationService, RecommendationService>();
+            services.AddScoped<IQuestionService, QuestionService>();
 
             services.AddMemoryCache();
 
@@ -41,7 +43,7 @@ namespace APIEbeer.App
                     c.RoutePrefix = "swagger"; // Acesse em /swagger
                 });
             }
-                
+
 
             app.UseRouting();
 

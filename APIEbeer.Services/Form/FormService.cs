@@ -1,178 +1,85 @@
-﻿using APIEbeer.Data.Models;
-using APIEbeer.Shared.ViewModels.Answers;
+﻿using APIEbeer.Services.Questions;
 using APIEbeer.Shared.ViewModels.Form;
 using APIEbeer.Shared.ViewModels.JSON;
 
 namespace APIEbeer.Services.Form
 {
-    public class FormService(QuestionsModel questionsModel, ResponseOptionsModel responseOptionsModel) : IFormService
+    public class FormService(IQuestionService questionService) : IFormService
     {
-        // Constructor injection for QuestionsModel and OptionsResponseModel
-        private readonly QuestionsModel _questionsModel = questionsModel;
-        private readonly ResponseOptionsModel _responseOptionsModel = responseOptionsModel;
-        private readonly List<string> _questionsCreated = [];
+        private readonly IQuestionService _questionService = questionService;
 
-        // Generates a dynamic form based on the characteristics of the provided model.
-        public FormViewModel CreateDynamicForm(MenuViewModel model)
+        public FormViewModel CreateDynamicForm(JsonViewModel model) // ALTERADO: Recebe o modelo completo
         {
-            if (model == null)
-                throw new ArgumentNullException(nameof(model), "Model cannot be null.");
+            if (model?.Menu == null)
+                throw new ArgumentNullException(nameof(model), "Model and Menu cannot be null.");
 
-            // Generate categories from the model's categories
-            var categories = CreateCategories(model.Categories);
+            var categories = CreateCategories(model.Menu.Categories, model.QuestionLimitPerCategory);
 
-            // Check if categories were generated successfully
-            if (categories == null)
-                throw new ArgumentException("It was not possible to generate the categories");
+            if (categories == null || !categories.Any())
+                throw new ArgumentException("Não foi possível gerar categorias com perguntas.");
 
             var formId = Guid.NewGuid().ToString();
 
-            // Create the form view model with the generated categories
-            var form = new FormViewModel
-            {
-                FormId = formId,
-                Categories = categories
-            };
-
-            return form;
+            return new FormViewModel { FormId = formId, Categories = categories };
         }
 
-        private List<FormCategoryViewModel> CreateCategories(List<CategoryViewModel> categories)
+        private List<FormCategoryViewModel> CreateCategories(List<CategoryViewModel> categories, int? questionLimit)
         {
-            if (categories == null || categories.Count == 0)
-                throw new ArgumentException("Categories cannot be null or empty.");
-
-            // Create a list to hold the categories with their questions
             var questionsByCategory = new List<FormCategoryViewModel>();
-
-            // Iterate through each category in the provided categories
             foreach (var category in categories)
             {
-                //Create a list to hold all questions for the current category
-                var allQuestions = new List<FormQuestionsViewModel>();
-
-                // Iterate through each item in the category
-                foreach (var item in category.Items)
-                {
-                    if (item.Characteristics == null || item.Characteristics.Count == 0)
-                        continue; // Skip if no characteristics for this item
-
-                    // Generate questions based on the characteristics of the item
-                    var questions = CreateQuestions(item.Characteristics);
-
-                    if (questions == null)
-                        continue; // Skip if no questions generated for this item
-
-                    // Add the generated questions to the list for this category
-                    allQuestions.AddRange(questions);
-                }
-
-                // If there are questions for this category, add it to the list of categories
-                if (allQuestions.Count > 0)
+                var questionsForThisCategory = CreateQuestionsForCategory(category.Items, questionLimit);
+                if (questionsForThisCategory.Any())
                 {
                     questionsByCategory.Add(new FormCategoryViewModel
                     {
                         Name = category.Name,
-                        Questions = allQuestions
+                        Questions = questionsForThisCategory
                     });
                 }
             }
-
             return questionsByCategory;
         }
 
-        // Generates a list of questions based on the characteristics provided in the model.
-        private List<FormQuestionsViewModel> CreateQuestions(Dictionary<string, string> characteristics)
+        // MÉTODO RENOMEADO E CORRIGIDO para maior clareza.
+        private List<FormQuestionsViewModel> CreateQuestionsForCategory(List<ItemViewModel> items, int? questionLimit)
         {
-            if (characteristics == null || characteristics.Count == 0)
-                throw new ArgumentException("Characteristics cannot be null or empty.");
+            // Junta TODAS as características de TODAS as cervejas
+            var allCharacteristics = items
+                .SelectMany(i => i.Characteristics)
+                .GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First()) // Mantém apenas uma por nome
+                .OrderBy(_ => Guid.NewGuid()) // Embaralha
+                .ToList();
 
-            // Create a list to hold the form questions
+            // Aplica o limite máximo, se houver
+            var limit = questionLimit.HasValue && questionLimit.Value > 0
+                ? Math.Min(questionLimit.Value, allCharacteristics.Count)
+                : allCharacteristics.Count;
+
+            var selectedCharacteristics = allCharacteristics
+                .Take(limit)
+                .ToList();
+
             var questions = new List<FormQuestionsViewModel>();
-
-            // Use reflection to get the properties of the QuestionsModel
-            var questionsProperties = _questionsModel
-                .GetType()
-                .GetProperties()
-                .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
-
-            // Use reflection to get the properties of the OptionsResponseModel
-            var optionsProperties = _responseOptionsModel
-                .GetType()
-                .GetProperties()
-                // Create a dictionary from the options properties for easy access
-                .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
-
-            // Iterate through the characteristics and match them with the properties of QuestionsModel
-            foreach (var characteristic in characteristics)
+            foreach (var characteristic in selectedCharacteristics)
             {
-                // Find the corresponding question property in QuestionsModel based on the characteristic key
-                if (!questionsProperties.TryGetValue(characteristic.Key, out var questionProp))
-                    continue; // Skip if no matching question property found
+                var questionText = _questionService.GetQuestionForCharacteristic(characteristic.Name);
+                if (string.IsNullOrWhiteSpace(questionText)) continue;
 
-                if (_questionsCreated.Contains(questionProp.Name))
-                    continue;
-
-                // Get the value of the question property
-                var questionText = questionProp.GetValue(_questionsModel)?.ToString();
-                if (string.IsNullOrWhiteSpace(questionText))
-                    continue; // Skip if question text is null or empty
-
-                // Construct the option property name based on the question property name
-                var optionName = $"Options{questionProp.Name}";
-                // Check if the options property exists in OptionsResponseModel and save it in optionProp
-                if (!optionsProperties.TryGetValue(optionName, out var optionProp))
-                    continue; // Skip if no matching options property found
-
-                // Get the value of the options property and try convert it to a List<string>
-                var options = optionProp.GetValue(_responseOptionsModel) as List<string>;
-                // Ensure options are not null or empty
-                if (options == null || options.Count == 0)
-                    continue; // Skip if options are null or empty
-
-                // Add the question and its options to the list
                 questions.Add(new FormQuestionsViewModel
                 {
-                    Characteristic = questionProp.Name,
+                    Characteristic = characteristic.Name,
                     Question = questionText,
-                    Options = options
+                    Options = items
+                        .SelectMany(i => i.Characteristics)
+                        .Where(c => c.Name.Equals(characteristic.Name, StringComparison.OrdinalIgnoreCase))
+                        .SelectMany(c => c.Options)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList()
                 });
-
-                _questionsCreated.Add(questionProp.Name);
-
             }
             return questions;
-        }
-
-        public bool IsValidAnswers(AnswersViewModel answers)
-        {
-            if (answers == null)
-                throw new ArgumentNullException(nameof(answers), "Answers cannot be null.");
-
-            foreach (var category in answers.Categories)
-            {
-                if(category.SelectedAnswers.Count == 0)
-                    throw new ArgumentException($"Category '{category.Name}' has no selected answers.");
-
-                foreach (var answer in category.SelectedAnswers)
-                {
-                    var characteristicAsked = answer.CharacteristicAsked;
-
-                    if (!_questionsModel.ValidateQuestionByCharacteristic(characteristicAsked ?? string.Empty))
-                        throw new ArgumentException($"Invalid characteristic asked: {characteristicAsked} in category '{category.Name}'.");
-
-                    var options = _responseOptionsModel.GetOptionsByCharacteristic(characteristicAsked ?? string.Empty);
-
-                    if (options.Count == 0)
-                        throw new ArgumentException($"The characteristic asked: {characteristicAsked} has no response options");
-
-                    if (!options.Contains(answer.SelectedOption))
-                        throw new ArgumentException($"One or more selected options are not valid for characteristic '{characteristicAsked}' in category '{category.Name}'.");
-                }
-
-            }
-
-            return true;
         }
     }
 }

@@ -16,7 +16,6 @@ namespace APIEbeer.Controllers
         private readonly IFormService _formService = formService;
         private readonly ICacheService _cacheService = cacheService;
 
-        
         [HttpGet]
         public IActionResult GetForm([FromQuery] string formId)
         {
@@ -49,7 +48,7 @@ namespace APIEbeer.Controllers
                 return BadRequest(ErrorMessage ?? "Erro de validação desconhecido.");
 
             // Create the dynamic form based on the JSON structure
-            FormViewModel form = _formService.CreateDynamicForm(model.Menu);
+            FormViewModel form = _formService.CreateDynamicForm(model);
 
             // Checks if the form is null or empty
             if (form == null)
@@ -62,7 +61,7 @@ namespace APIEbeer.Controllers
             _cacheService.Set<JsonViewModel>($"formId:{form.FormId}:JsonViewModel", model);
 
             // Redirect to Index
-            return RedirectToAction("GetForm", new { form.FormId });
+            return Ok(form);
 
         }
     }

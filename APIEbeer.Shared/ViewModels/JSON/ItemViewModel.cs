@@ -8,6 +8,6 @@ namespace APIEbeer.Shared.ViewModels.JSON
         public required string Name { get; set; }
 
         [JsonPropertyName("characteristics")]
-        public required Dictionary<string, string> Characteristics { get; set; }
+        public required List<CharacteristicViewModel> Characteristics { get; set; }
     }
 }

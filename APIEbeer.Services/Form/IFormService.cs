@@ -6,7 +6,6 @@ namespace APIEbeer.Services.Form
 {
     public interface IFormService
     {
-        public FormViewModel CreateDynamicForm(MenuViewModel model);
-        public bool IsValidAnswers(AnswersViewModel answers);
+        public FormViewModel CreateDynamicForm(JsonViewModel model);
     }
 }

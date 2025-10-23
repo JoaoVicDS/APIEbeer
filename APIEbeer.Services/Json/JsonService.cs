@@ -28,8 +28,20 @@ namespace APIEbeer.Services.Json
                     if (string.IsNullOrWhiteSpace(item.Name))
                         return (false, $"Cada item deve conter a chave 'name' na categoria '{category.Name}'.");
 
-                    if (item.Characteristics == null || item.Characteristics.Count == 0)
-                        return (false, $"O item '{item.Name}' da categoria '{category.Name}' deve conter a chave 'characteristics'.");
+                    if (item.Characteristics == null || !item.Characteristics.Any())
+                        return (false, $"O item '{item.Name}' deve conter ao menos uma característica.");
+
+                    foreach (var characteristic in item.Characteristics)
+                    {
+                        if (string.IsNullOrWhiteSpace(characteristic.Name))
+                            return (false, $"O item '{item.Name}' possui uma característica sem nome.");
+
+                        if (string.IsNullOrWhiteSpace(characteristic.Value))
+                            return (false, $"A característica '{characteristic.Name}' do item '{item.Name}' não possui um valor.");
+
+                        if (characteristic.Options == null || !characteristic.Options.Any())
+                            return (false, $"A característica '{characteristic.Name}' do item '{item.Name}' não possui opções.");
+                    }
                 }
             }
 

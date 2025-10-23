@@ -7,6 +7,9 @@ namespace APIEbeer.Shared.ViewModels.JSON
         [JsonPropertyName("restaurant")]
         public required string Restaurant { get; set; }
 
+        [JsonPropertyName("questionLimitPerCategory")]
+        public int? QuestionLimitPerCategory { get; set; }
+
         [JsonPropertyName("menu")]
         public required MenuViewModel Menu { get; set; }
     }
